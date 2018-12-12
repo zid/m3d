@@ -1,0 +1,13 @@
+#version 400
+
+in vec2 texcoord;
+uniform sampler2D tex;
+
+out vec4 outcol;
+
+
+void main(void)
+{
+	//outcol =  texture(tex, vec2(texcoord.x, texcoord.y));
+	outcol = vec4(0.7, 0.7, 0.7, 1.0) * texture(tex, texcoord);
+}

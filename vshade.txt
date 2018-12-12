@@ -1,0 +1,28 @@
+#version 400
+
+in vec3 pos;
+in vec2 uv;
+
+out vec2 texcoord;
+
+const mat4 proj = mat4(
+	4.264122,       0.0,        0.0,  0.0,
+	     0.0,  5.671282,        0.0,  0.0,
+	     0.0,       0.0,  -1.004008, -1.0,
+	     0.0,       0.0,  -40.08016,  0.0
+);
+
+
+const mat4 model = mat4(
+	   1.0,   0.0,     0.0, 0.0,
+	   0.0,   1.0,     0.0, 0.0,
+	   0.0,   0.0,     1.0, 0.0,
+	-280.5, -13, -1414.1661, 1.0
+);
+
+void main(void)
+{
+	texcoord = uv;
+	gl_Position = proj * model * vec4(pos, 1.0);
+}
+
