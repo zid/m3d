@@ -72,6 +72,7 @@ struct shader *shader_new(const char *vpath, const char *fpath)
 
 	s->vshader_path = strdup(vpath);
 	s->fshader_path = strdup(fpath);
+
 	s->program = shader;
 	s->vshader = vshade;
 	s->fshader = fshade;
@@ -81,8 +82,8 @@ struct shader *shader_new(const char *vpath, const char *fpath)
 
 void shader_destroy(struct shader *s)
 {
-	glDeleteShader(s->vshader);
-	glDeleteShader(s->fshader);
+//	glDeleteShader(s->vshader);
+//	glDeleteShader(s->fshader);
 	glDeleteProgram(s->program);
 
 	free((void *)s->vshader_path);
@@ -93,19 +94,18 @@ void shader_destroy(struct shader *s)
 
 /* This makes an extra copy of the file paths, but not
  * doing it would need adding extra API functions. */
-void shader_reload(struct shader *s)
+void shader_reload(struct shader **s)
 {
 	const char *fpath, *vpath;
-
 	/* These are about to get wiped out, keep a copy */
-	fpath = strdup(s->fshader_path);
-	vpath = strdup(s->vshader_path);
+	fpath = strdup((*s)->fshader_path);
+	vpath = strdup((*s)->vshader_path);
 
 	/* Clean up the old shaders */
-	shader_destroy(s);
+	shader_destroy(*s);
 
 	/* Reload the files and make new ones */
-	s = shader_new(fpath, vpath);
+	*s = shader_new(vpath, fpath);
 
 	/* Free the temporary copies we held so we could delete the old shader */
 	free((void *)fpath);

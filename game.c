@@ -25,7 +25,7 @@ static struct model frame;
 
 void game_reload()
 {
-	shader_reload(frame.shader);
+	shader_reload(&frame.shader);
 }
 
 
