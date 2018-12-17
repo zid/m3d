@@ -106,13 +106,16 @@ static uint16_t u16_at(const unsigned char *b)
 	return v;
 }
 
+/* Turns GL_TRIANGLE_STRIP entries into a big GL_TRIANGLE array */
 static int m3d_process_strips(const uint8_t *buf, struct m3d_obj *obj, uint32_t strip_count)
 {
 	uint32_t i, j;
 	uint32_t elem_count = 0;
 	uint16_t *elems;
 	uint16_t v0, v1, v2;
-	//nlog("Dumping %d strips\n", strip_count);
+
+	/* Need to pre-count the number of elements in the strips
+	 * so the correct amount of space can be allocated. */
 	for(i = 0; i < strip_count; i++)
 	{
 		uint32_t strip_size;
@@ -124,6 +127,13 @@ static int m3d_process_strips(const uint8_t *buf, struct m3d_obj *obj, uint32_t 
 	elems = malloc(elem_count * sizeof (short));
 	obj->elem.elems = elems;
 	obj->elem.elem_count = elem_count;
+
+	/*
+	 * For each strip, grab the number of triangles in the strip and
+	 * where it starts within the index array.
+	 * Alternate triangles need to have their element order rotated so that
+	 * the triangles stay wound clockwise.
+	 */
 	for(i = 0; i < strip_count; i++)
 	{
 		uint32_t off, count;
@@ -134,7 +144,6 @@ static int m3d_process_strips(const uint8_t *buf, struct m3d_obj *obj, uint32_t 
 		if(off + count > obj->idx_count)
 			return M3D_ERR_OBJ;
 
-		//nlog("New strip of %d things, from %d\n", count, off);
 		v0 = obj->idx[off];
 		v1 = obj->idx[off+1];
 
@@ -144,14 +153,12 @@ static int m3d_process_strips(const uint8_t *buf, struct m3d_obj *obj, uint32_t 
 
 			if((j & 1) == 0)
 			{
-				//nlog("[%d %d %d] %d", v1, v0, v2, off+j+2);
 				*elems++ = v1;
 				*elems++ = v0;
 				*elems++ = v2;
 			}
 			else
 			{
-			//	nlog("%d %d %d %d\n", v0, v1, v2, off+j+2);
 				*elems++ = v0;
 				*elems++ = v1;
 				*elems++ = v2;
@@ -169,13 +176,15 @@ static void m3d_load_idxs(const uint8_t *buf, uint32_t idx_count, uint16_t *idx)
 	uint32_t i;
 
 	for(i = 0; i < idx_count; i++)
-	{
 		idx[i] = u16_at(&buf[i*2]);
-	//	nlog("Idx %d is %d\n", i, idx[i]);
-	}
 }
 
-/* Assumes floats are in host format */
+/*
+ * Read a float[3] and a float[2] from the 'pos' and 'uv'
+ * offset respectively and produce an output float[5].
+ *
+ * Assumes floats are in host format.
+ */
 static void m3d_load_verts(const uint8_t *buf, uint32_t vert_count,
 	uint32_t pos_offset, uint32_t uvs_offset, struct m3d_vert *v)
 {
@@ -197,6 +206,10 @@ static void m3d_load_verts(const uint8_t *buf, uint32_t vert_count,
 	}
 }
 
+/*
+ * obj entries contain information about triangle strips,
+ * vertex data (xyz, uv) and the indicies used by the strips
+ */
 static int m3d_load_obj(const uint8_t *buf,
 	uint32_t obj_off, struct m3d_obj *obj, uint32_t len)
 {
@@ -233,6 +246,7 @@ static int m3d_load_obj(const uint8_t *buf,
 	return M3D_OK;
 }
 
+/* Entry seems to just contain the amount of objects in each entry */
 static int m3d_load_entry(const uint8_t *buf,
 	uint32_t ent_off, struct m3d_ent *ent, uint32_t len)
 {
@@ -266,7 +280,7 @@ err:
 	return r;
 }
 
-static struct m3d_ent **m3d_load_entes(const uint8_t *buf,
+static struct m3d_ent **m3d_load_entries(const uint8_t *buf,
 	uint32_t ent_offset, uint32_t ent_count, uint32_t len)
 {
 	struct m3d_ent **ent;
@@ -298,6 +312,8 @@ err:
 	return NULL;
 }
 
+/* I don't have a .tga loader handy so I just pretend it contains
+ * references to PNG files. */
 static void m3d_load_texture(struct m3d_tex *t)
 {
 	size_t len;
@@ -310,10 +326,7 @@ static void m3d_load_texture(struct m3d_tex *t)
 	if(len > 4 && strcasecmp(&buf[len-4], ".tga") == 0)
 		memcpy(&buf[len-4], ".png", 4);
 
-	nlog("Loading png %s", buf);
 	t->i = png_load(buf);
-	
-	nlog("%d %d %d", t->i.w, t->i.h, t->i.format);
 }
 
 static struct m3d_tex **m3d_load_textures(const uint8_t *buf,
@@ -342,6 +355,7 @@ static struct m3d_tex **m3d_load_textures(const uint8_t *buf,
 	return tex;
 }
 
+/* dframe01 seems to contain references to materials, but I don't need to figure them out */
 static int m3d_parse(const unsigned char *buf, uint32_t len, struct m3d **mout)
 {
 	struct m3d *m;
@@ -382,7 +396,7 @@ static int m3d_parse(const unsigned char *buf, uint32_t len, struct m3d **mout)
 		goto err;
 	}
 
-	m->ent = m3d_load_entes(buf, ent_offset, m->ent_count, len);
+	m->ent = m3d_load_entries(buf, ent_offset, m->ent_count, len);
 	if(!m->ent)
 	{
 		r = M3D_ERR_ENT;
